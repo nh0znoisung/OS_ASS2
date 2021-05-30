@@ -118,6 +118,24 @@ addr_t alloc_mem(uint32_t size, struct pcb_t * proc) {
 	 * to know whether this page has been used by a process.
 	 * For virtual memory space, check bp (break pointer).
 	 * */
+
+	//traverse the _mem_stat list and look for free pages
+	uint32_t free_pages = 0;
+	for (int i = 0; i < NUM_PAGES; i++)
+	{
+		if (_mem_stat[i].proc == 0) free_pages++;
+		//if there are enough free pages, we conclue that we can allocate the required amount
+		if (free_pages == num_pages)
+		{
+			mem_avail = 1;
+			break;
+		}
+	}
+
+	//check for availability in the virtual memory space
+	//if the bp exceeds the size of virtual RAM (which is 1MB) --> new memory can't be allocated
+	//0xfffff is the largest 20-bit number, so it is the max value bp can take.
+	if (proc->bp + num_pages * PAGE_SIZE > 0xfffff) mem_avail = 0;
 	
 	if (mem_avail) {
 		/* We could allocate new memory region to the process */
@@ -129,6 +147,32 @@ addr_t alloc_mem(uint32_t size, struct pcb_t * proc) {
 		 * 	- Add entries to segment table page tables of [proc]
 		 * 	  to ensure accesses to allocated memory slot is
 		 * 	  valid. */
+
+		//store the value of the last allocated page, used for updating the "next" field in _mem_stat
+		int last_page = -1;
+
+		//store the index of the current alocated page, used for updating the "index" field in _mem_stat
+		int index_count = 0;
+		for (int i = 0; i < NUM_PAGES; i++)
+		{
+			//looking for free pages
+			if (_mem_stat[i].proc == 0)
+			{
+				num_pages--; 
+				_mem_stat[i].proc = proc->pid;
+				_mem_stat[i].index = index_count;
+				if (last_page != -1) _mem_stat[last_page].next = i;
+				index_count++;
+				last_page = i;
+			}
+			if (num_pages == 0) 
+			{
+				//update the "next" field of the final page
+				_mem_stat[last_page].next = -1;
+				break;
+			}
+		}
+
 	}
 	pthread_mutex_unlock(&mem_lock);
 	return ret_mem;
