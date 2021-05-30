@@ -84,7 +84,6 @@ static int translate(
 	struct page_table_t * page_table = NULL;
 	page_table = get_page_table(first_lv, proc->seg_table);
 	if (page_table == NULL) {
-		printf("SEGMENT INDEX: %d\n", first_lv);
 		return 0;
 	}
 
@@ -101,7 +100,6 @@ static int translate(
 			return 1;
 		}
 	}
-	printf("SECOND INDEX: %d\n", second_lv);
 	return 0;	
 }
 
