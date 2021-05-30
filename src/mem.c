@@ -74,16 +74,17 @@ static int translate(
 	addr_t offset = get_offset(virtual_addr);
 	/* The first layer index */
 	addr_t first_lv = get_first_lv(virtual_addr);
-	//printf("SEGMENT INDEX: %d\n", first_lv);
+	
 	/* The second layer index */
 	addr_t second_lv = get_second_lv(virtual_addr);
-	//printf("SECOND INDEX: %d\n", second_lv);
+
 	
 	
 	/* Search in the first level */
 	struct page_table_t * page_table = NULL;
 	page_table = get_page_table(first_lv, proc->seg_table);
 	if (page_table == NULL) {
+		printf("SEGMENT INDEX: %d\n", first_lv);
 		return 0;
 	}
 
@@ -100,6 +101,7 @@ static int translate(
 			return 1;
 		}
 	}
+	printf("SECOND INDEX: %d\n", second_lv);
 	return 0;	
 }
 
@@ -180,36 +182,26 @@ addr_t alloc_mem(uint32_t size, struct pcb_t * proc) {
 				break;
 			}
 		}
-		//add a new entry to the segment table
-		struct seg_table_t* seg_table = proc->seg_table;
-		int valid_index;
-		int duplicate_index;
-		//find a valid virtual index for the next row
-		for (valid_index = 0; valid_index < ~(~0 << SEGMENT_LEN) + 1; valid_index++)
+
+		struct seg_table_t* seg_table = (struct seg_table_t*)proc->seg_table;
+		struct page_table_t *page_table = get_page_table(get_first_lv(ret_mem), seg_table);
+		//printf("SEG_OFFSET: %d\n", get_first_lv(ret_mem));
+		if (page_table == NULL)
 		{
-			duplicate_index = 0;
-			for(int i = 0; i < seg_table->size; i++)
-			{
-				if (valid_index == seg_table->table[i].v_index)
-				{
-					duplicate_index = 1;
-					break;
-				}
-			}
-			if (!duplicate_index) break;
+			//if there is no page_table yet, we add a new one to segment_table
+			seg_table->size++;
+			seg_table->table[seg_table->size - 1].v_index = get_first_lv(ret_mem);
+			seg_table->table[seg_table->size - 1].pages = (struct page_table_t* )malloc(sizeof(struct page_table_t));
+			//page_table = seg_table->table[seg_table->size - 1].pages;
+			page_table = get_page_table(get_first_lv(ret_mem), seg_table);
 		}
-		//add a new row to the segment table with the newly found index
-		//printf("INDEX: %d\t%d\n", valid_index, get_first_lv(ret_mem));
-		seg_table->size++;
-		seg_table->table[seg_table->size - 1].v_index = get_first_lv(ret_mem);
-		seg_table->table[seg_table->size - 1].pages = (struct page_table_t* )malloc(sizeof(struct page_table_t));
-		//puts("HELLO");
-		//build the page table
-		struct page_table_t *page_table = seg_table->table[seg_table->size - 1].pages;
+
+		//create new entries in the page table
 		int physical_index = first_page;
-		page_table->size = num_pages;
-		for (int i = get_second_lv(ret_mem); i < num_pages; i++)
+		page_table->size += num_pages;
+		for (int i = get_second_lv(ret_mem); i < get_second_lv(ret_mem) + num_pages; i++)
 		{
+			//printf("v_index: %d\n", i);
 			page_table->table[i].v_index = i;
 			page_table->table[i].p_index = physical_index;
 			physical_index = _mem_stat[i].next;	//update the index of the next page in physical memory
