@@ -237,6 +237,8 @@ int free_mem(addr_t address, struct pcb_t * proc) {
 
 		//traverse page table
 		for(i = 0; i < page_table->size; i++){
+
+			//page need to find
 			if(page_table->table[i].v_index == get_second_lv(address)){
 				addr_t physical_addr;
 				if(translate(address, &physical_addr, proc)){
@@ -246,11 +248,12 @@ int free_mem(addr_t address, struct pcb_t * proc) {
 						//set flag [proc] of physical page back to 0 => memory block was free
 						_mem_stat[p_index].proc = 0;
 						
+						int found = 0;
 						seg_idx=get_first_lv(address);
 						page_idx=get_second_lv(address);
 
 						int k;
-						for(k = 0; k < proc->seg_table->size; k++){
+						for(k = 0; k < proc->seg_table->size && !found; k++){
 							if( proc->seg_table->table[k].v_index == seg_idx ){
 								int l;
 								for(l = 0; l < proc->seg_table->table[k].pages->size; l++){
@@ -266,11 +269,13 @@ int free_mem(addr_t address, struct pcb_t * proc) {
 												proc->seg_table->table[m]= proc->seg_table->table[m + 1];
 											proc->seg_table->size--;
 										}
+										found = 1;
 										break;
 									}
 								}
 							}
 						}
+						
 						//go to the next page of proc
 						p_index = _mem_stat[p_index].next;
 					}
