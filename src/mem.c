@@ -74,8 +74,11 @@ static int translate(
 	addr_t offset = get_offset(virtual_addr);
 	/* The first layer index */
 	addr_t first_lv = get_first_lv(virtual_addr);
+	//printf("SEGMENT INDEX: %d\n", first_lv);
 	/* The second layer index */
 	addr_t second_lv = get_second_lv(virtual_addr);
+	//printf("SECOND INDEX: %d\n", second_lv);
+	
 	
 	/* Search in the first level */
 	struct page_table_t * page_table = NULL;
@@ -92,6 +95,8 @@ static int translate(
 			 * produce the correct physical address and save it to
 			 * [*physical_addr]  */
 			*physical_addr = (page_table->table[i].p_index << OFFSET_LEN) + offset;
+			//printf("Physical index: %d\n", page_table->table[i].p_index);
+			//printf("OFFSET: %d\n", *physical_addr);
 			return 1;
 		}
 	}
@@ -194,15 +199,16 @@ addr_t alloc_mem(uint32_t size, struct pcb_t * proc) {
 			if (!duplicate_index) break;
 		}
 		//add a new row to the segment table with the newly found index
+		//printf("INDEX: %d\t%d\n", valid_index, get_first_lv(ret_mem));
 		seg_table->size++;
-		seg_table->table[seg_table->size - 1].v_index = valid_index;
+		seg_table->table[seg_table->size - 1].v_index = get_first_lv(ret_mem);
 		seg_table->table[seg_table->size - 1].pages = (struct page_table_t* )malloc(sizeof(struct page_table_t));
 		//puts("HELLO");
 		//build the page table
 		struct page_table_t *page_table = seg_table->table[seg_table->size - 1].pages;
 		int physical_index = first_page;
 		page_table->size = num_pages;
-		for (int i = 0; i < num_pages; i++)
+		for (int i = get_second_lv(ret_mem); i < num_pages; i++)
 		{
 			page_table->table[i].v_index = i;
 			page_table->table[i].p_index = physical_index;
@@ -214,6 +220,7 @@ addr_t alloc_mem(uint32_t size, struct pcb_t * proc) {
 	}
 
 	pthread_mutex_unlock(&mem_lock);
+	//printf("ALLOC: %d\n", ret_mem);
 	return ret_mem;
 }
 
@@ -302,8 +309,10 @@ int write_mem(addr_t address, struct pcb_t * proc, BYTE data) {
 	addr_t physical_addr;
 	if (translate(address, &physical_addr, proc)) {
 		_ram[physical_addr] = data;
+		//printf("WRITE: %d\n", physical_addr);
 		return 0;
 	}else{
+		//puts("TRANSLATE FAILED");
 		return 1;
 	}
 }
