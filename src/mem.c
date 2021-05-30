@@ -205,8 +205,8 @@ int free_mem(addr_t address, struct pcb_t * proc) {
 					do{
 						int found = 0;
 						int k;
-						seg_idx=get_first_lv(address);
-						page_idx=get_second_lv(address);
+						seg_idx=get_first_lv(cur_vir_addr);
+						page_idx=get_second_lv(cur_vir_addr);
 						for(k = 0; k < proc->seg_table->size && !found; k++){
 							if( proc->seg_table->table[k].v_index == seg_idx ){
 								int l;
