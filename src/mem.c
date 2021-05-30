@@ -106,7 +106,7 @@ addr_t alloc_mem(uint32_t size, struct pcb_t * proc) {
 	 * byte in the allocated memory region to [ret_mem].
 	 * */
 
-	uint32_t num_pages = (size % PAGE_SIZE) ? size / PAGE_SIZE :
+	uint32_t num_pages = (size % PAGE_SIZE == 0) ? size / PAGE_SIZE :
 		size / PAGE_SIZE + 1; // Number of pages we will use
 	int mem_avail = 0; // We could allocate new memory region or not?
 
@@ -148,32 +148,71 @@ addr_t alloc_mem(uint32_t size, struct pcb_t * proc) {
 		 * 	  to ensure accesses to allocated memory slot is
 		 * 	  valid. */
 
-		//store the value of the last allocated page, used for updating the "next" field in _mem_stat
-		int last_page = -1;
 
+		//store the value of the latest allocated page, used for updating the "next" field in _mem_stat
+		int latest_page = -1;
 		//store the index of the current alocated page, used for updating the "index" field in _mem_stat
 		int index_count = 0;
+		int needed_pages = num_pages;
+		int first_page = 0;
 		for (int i = 0; i < NUM_PAGES; i++)
 		{
 			//looking for free pages
 			if (_mem_stat[i].proc == 0)
 			{
-				num_pages--; 
+				needed_pages--; 
 				_mem_stat[i].proc = proc->pid;
 				_mem_stat[i].index = index_count;
-				if (last_page != -1) _mem_stat[last_page].next = i;
+				if (latest_page != -1) _mem_stat[latest_page].next = i;
+				else first_page = i;
 				index_count++;
-				last_page = i;
+				latest_page = i;
 			}
-			if (num_pages == 0) 
+			if (needed_pages == 0) 
 			{
 				//update the "next" field of the final page
-				_mem_stat[last_page].next = -1;
+				_mem_stat[latest_page].next = -1;
 				break;
 			}
 		}
+		//add a new entry to the segment table
+		struct seg_table_t* seg_table = proc->seg_table;
+		int valid_index;
+		int duplicate_index;
+		//find a valid virtual index for the next row
+		for (valid_index = 0; valid_index < ~(~0 << SEGMENT_LEN) + 1; valid_index++)
+		{
+			duplicate_index = 0;
+			for(int i = 0; i < seg_table->size; i++)
+			{
+				if (valid_index == seg_table->table[i].v_index)
+				{
+					duplicate_index = 1;
+					break;
+				}
+			}
+			if (!duplicate_index) break;
+		}
+		//add a new row to the segment table with the newly found index
+		seg_table->size++;
+		seg_table->table[seg_table->size - 1].v_index = valid_index;
+		seg_table->table[seg_table->size - 1].pages = (struct page_table_t* )malloc(sizeof(struct page_table_t));
+		//puts("HELLO");
+		//build the page table
+		struct page_table_t *page_table = seg_table->table[seg_table->size - 1].pages;
+		int physical_index = first_page;
+		page_table->size = num_pages;
+		for (int i = 0; i < num_pages; i++)
+		{
+			page_table->table[i].v_index = i;
+			page_table->table[i].p_index = physical_index;
+			physical_index = _mem_stat[i].next;	//update the index of the next page in physical memory
+		}
+
+
 
 	}
+
 	pthread_mutex_unlock(&mem_lock);
 	return ret_mem;
 }
