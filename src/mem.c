@@ -269,14 +269,17 @@ int free_mem(addr_t address, struct pcb_t * proc) {
 				addr_t physical_addr;
 				if(translate(address, &physical_addr, proc)){
 					int p_index = physical_addr >> OFFSET_LEN;	//page index on memory
+					int count_page_free = 0;
+					addr_t cur_addr;
 					addr_t seg_idx,page_idx;	//segment index and page index of current region
 					do{
 						//set flag [proc] of physical page back to 0 => memory block was free
 						_mem_stat[p_index].proc = 0;
 						
 						int found = 0;
-						seg_idx=get_first_lv(address);
-						page_idx=get_second_lv(address);
+						cur_addr = (count_page_free << OFFSET_LEN) + address;
+						seg_idx=get_first_lv(cur_addr);
+						page_idx=get_second_lv(cur_addr);
 
 						int k;
 						for(k = 0; k < proc->seg_table->size && !found; k++){
@@ -284,15 +287,17 @@ int free_mem(addr_t address, struct pcb_t * proc) {
 								int l;
 								for(l = 0; l < proc->seg_table->table[k].pages->size; l++){
 									if(proc->seg_table->table[k].pages->table[l].v_index== page_idx){
-										int m;
-										for(m = l; m < proc->seg_table->table[k].pages->size - 1; m++)//Rearrange page table
-											proc->seg_table->table[k].pages->table[m]= proc->seg_table->table[k].pages->table[m + 1];
-										
+
+										//free page
+										int size = proc->seg_table->table[k].pages->size;
+										proc->seg_table->table[k].pages->table[l] = proc->seg_table->table[k].pages->table[size-1];
 										proc->seg_table->table[k].pages->size--;
+
 										if(proc->seg_table->table[k].pages->size == 0){//If all pages in segment are free
-											free(proc->seg_table->table[k].pages);
-											for(m = k; m < proc->seg_table->size - 1; m++)//Rearrange segment table
-												proc->seg_table->table[m]= proc->seg_table->table[m + 1];
+											free(proc->seg_table->table[k].pages);	//free page table
+										
+											//free segment(free all allocated page) 
+											proc->seg_table->table[k] = proc->seg_table->table[proc->seg_table->size-1];
 											proc->seg_table->size--;
 										}
 										found = 1;
@@ -301,11 +306,10 @@ int free_mem(addr_t address, struct pcb_t * proc) {
 								}
 							}
 						}
-						
+						count_page_free+=1;
 						//go to the next page of proc
 						p_index = _mem_stat[p_index].next;
-					}
-					while(p_index != -1);
+					}while(p_index != -1);
 					valid = 1;
 				}
 				break;
@@ -319,6 +323,7 @@ int free_mem(addr_t address, struct pcb_t * proc) {
 		return 1;
 	return 0;
 }
+
 int read_mem(addr_t address, struct pcb_t * proc, BYTE * data) {
 	addr_t physical_addr;
 	if (translate(address, &physical_addr, proc)) {
