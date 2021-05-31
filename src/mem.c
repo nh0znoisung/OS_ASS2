@@ -94,7 +94,7 @@ static int translate(
 			 * to [p_index] field of page_table->table[i] to 
 			 * produce the correct physical address and save it to
 			 * [*physical_addr]  */
-			*physical_addr = (page_table->table[i].p_index << OFFSET_LEN) + offset;
+			*physical_addr = (first_lv << (OFFSET_LEN + PAGE_LEN)) + (page_table->table[i].p_index << OFFSET_LEN) + offset;
 			//printf("Physical index: %d\n", page_table->table[i].p_index);
 			//printf("OFFSET: %d\n", *physical_addr);
 			return 1;
