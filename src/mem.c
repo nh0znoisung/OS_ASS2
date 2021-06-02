@@ -52,7 +52,6 @@ static struct page_table_t * get_page_table(
 
 	int i;
 	for (i = 0; i < seg_table->size; i++) {
-		// Enter your code here
 		if (seg_table->table[i].v_index == index)
 		{
 			return seg_table->table[i].pages;
@@ -70,7 +69,6 @@ static int translate(
 		addr_t * physical_addr, // Physical address to be returned
 		struct pcb_t * proc) {  // Process uses given virtual address
 
-	//printf("ADDR: %d\n", virtual_addr);
 	/* Offset of the virtual address */
 	addr_t offset = get_offset(virtual_addr);
 	/* The first layer index */
@@ -78,8 +76,6 @@ static int translate(
 	
 	/* The second layer index */
 	addr_t second_lv = get_second_lv(virtual_addr);
-
-	//printf("ADDR:%d\tOFFSET: %d\tFirst: %d\tSecond: %d\n", virtual_addr, offset, first_lv, second_lv);	
 	
 	/* Search in the first level */
 	struct page_table_t * page_table = NULL;
@@ -87,19 +83,15 @@ static int translate(
 	if (page_table == NULL) {
 		return 0;
 	}
-	//puts("FOUND PAGE");
 
 	int i;
 	for (i = 0; i < page_table->size; i++) {
-		//printf("INDEX: %d\tSIZE: %d\n", page_table->table[i].p_index, page_table->size);
 		if (page_table->table[i].v_index == second_lv) {
 			/* TODO: Concatenate the offset of the virtual addess
 			 * to [p_index] field of page_table->table[i] to 
 			 * produce the correct physical address and save it to
 			 * [*physical_addr]  */
 			*physical_addr = (page_table->table[i].p_index << OFFSET_LEN) + offset;
-			//printf("Physical index: %d\n", page_table->table[i].p_index);
-			//printf("OFFSET: %d\n", *physical_addr);
 			return 1;
 		}
 	}
@@ -108,7 +100,6 @@ static int translate(
 
 addr_t alloc_mem(uint32_t size, struct pcb_t * proc) {
 	pthread_mutex_lock(&mem_lock);
-	//puts("ALLOC CALLED");
 	addr_t ret_mem = 0;
 	/* TODO: Allocate [size] byte in the memory for the
 	 * process [proc] and save the address of the first
@@ -170,13 +161,11 @@ addr_t alloc_mem(uint32_t size, struct pcb_t * proc) {
 			//looking for free pages
 			if (_mem_stat[i].proc == 0)
 			{
-				//printf("GIVE PAGE: %d for PROC: %d\n", i, proc->pid);
 				needed_pages--; 
 				_mem_stat[i].proc = proc->pid;
 				_mem_stat[i].index = index_count;
 				if (latest_page != -1) _mem_stat[latest_page].next = i;
 				else first_page = i;
-                                //printf("PAGE %d's next is %d\n", latest_page, _mem_stat[latest_page].next);
 				index_count++;
 				latest_page = i;
 			
@@ -188,8 +177,6 @@ addr_t alloc_mem(uint32_t size, struct pcb_t * proc) {
 				}
 			}
 		}
-		//puts("_mem_stat UPDATED");
-
 		//build segment and page_table entry for each page, one after another
 		//map each page of the virtual address to the physical address
 		int physical_index = first_page;
@@ -210,43 +197,15 @@ addr_t alloc_mem(uint32_t size, struct pcb_t * proc) {
 
 	                //create new entries in the page table
 			page_table->size++;
-			//printf("v_index: %d\tp_index:%d\n", get_second_lv(current_addr), physical_index);
 			page_table->table[page_table->size - 1].v_index = get_second_lv(current_addr);
 			page_table->table[page_table->size - 1].p_index = physical_index;
 			physical_index = _mem_stat[physical_index].next;
 
 
 		}
-
-		/*struct seg_table_t* seg_table = (struct seg_table_t*)proc->seg_table;
-		struct page_table_t *page_table = get_page_table(get_first_lv(ret_mem), seg_table);
-		//printf("SEG_OFFSET: %d\n", get_first_lv(ret_mem));
-		if (page_table == NULL)
-		{
-			//if there is no page_table yet, we add a new one to segment_table
-			seg_table->size++;
-			seg_table->table[seg_table->size - 1].v_index = get_first_lv(ret_mem);
-			seg_table->table[seg_table->size - 1].pages = (struct page_table_t* )malloc(sizeof(struct page_table_t));
-			//page_table = seg_table->table[seg_table->size - 1].pages;
-			page_table = get_page_table(get_first_lv(ret_mem), seg_table);
-		}
-
-		//create new entries in the page table
-		int physical_index = first_page;
-		page_table->size += num_pages;
-		addr_t base_v_index = get_second_lv(ret_mem);
-		for (int i = 0; i < num_pages; i++)
-		{
-			printf("v_index: %d\n", base_v_index + i);
-			page_table->table[i].v_index = base_v_index + i;
-			page_table->table[i].p_index = physical_index;
-			physical_index = _mem_stat[i].next;	//update the index of the next page in physical memory
-		}*/
-
 	}
 
 	pthread_mutex_unlock(&mem_lock);
-	//printf("ALLOC: %d\tSIZE:%d\tPROC: %d\n", ret_mem, size, proc->pid);
 	return ret_mem;
 }
 
